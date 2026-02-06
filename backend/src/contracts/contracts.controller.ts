@@ -7,19 +7,26 @@ import {
   Param,
   Delete,
   Query,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PdfGeneratorService } from './pdf-generator.service';
 
 @ApiTags('contracts')
 @ApiBearerAuth()
 @Controller('contracts')
 export class ContractsController {
-  constructor(private readonly contractsService: ContractsService) {}
+  constructor(
+    private readonly contractsService: ContractsService,
+    private readonly pdfGeneratorService: PdfGeneratorService,
+  ) {}
 
   @Post()
   @Roles(Role.ADMIN, Role.GESTOR)
@@ -52,6 +59,23 @@ export class ContractsController {
     const contract = await this.contractsService.findOne(id);
     const result = await this.contractsService.generatePaymentsForContract(contract);
     return result;
+  }
+
+  @Get(':id/pdf')
+  @ApiOperation({ summary: 'Gerar PDF do contrato' })
+  async generatePDF(@Param('id') id: string, @Res() res: Response) {
+    const contract = await this.contractsService.findOne(id);
+    const pdfBuffer = await this.pdfGeneratorService.generateContractPDF(contract);
+    
+    const fileName = `Contrato_${contract.property.name.replace(/\s/g, '_')}_${contract.tenant.name.replace(/\s/g, '_')}.pdf`;
+    
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Content-Length': pdfBuffer.length,
+    });
+    
+    res.send(pdfBuffer);
   }
 
   @Patch(':id')

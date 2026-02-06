@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, FileText } from 'lucide-react';
+import { FileText, Plus, Download } from 'lucide-react';
 import api from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ContractFormDialog } from '@/components/forms/contract-form-dialog';
@@ -50,6 +50,28 @@ export default function ContractsPage() {
       console.error('Erro ao gerar pagamentos:', error);
       const message = error.response?.data?.message || error.message;
       alert('Erro: ' + message);
+    }
+  };
+
+  const downloadContractPDF = async (contractId: string, propertyName: string, tenantName: string) => {
+    try {
+      const response = await api.get(`/contracts/${contractId}/pdf`, {
+        responseType: 'blob',
+      });
+      
+      // Create blob and download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Contrato_${propertyName.replace(/\s/g, '_')}_${tenantName.replace(/\s/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Erro ao baixar PDF:', error);
+      alert('Erro ao gerar contrato: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -127,6 +149,14 @@ export default function ContractsPage() {
                   onClick={() => generatePayments(contract.id)}
                 >
                   Gerar Pagamentos
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => downloadContractPDF(contract.id, contract.property.name, contract.tenant.name)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar Contrato
                 </Button>
               </div>
             </CardContent>
