@@ -22,29 +22,39 @@ export class DashboardService {
     // Total de inquilinos
     const totalTenants = await this.prisma.tenant.count();
 
-    // Pagamentos do mês
-    const paymentsThisMonth = await this.prisma.payment.findMany({
+    // Pagamentos recebidos no mês (filtra por paidDate, não referenceMonth)
+    const paymentsReceivedThisMonth = await this.prisma.payment.findMany({
       where: {
-        referenceMonth: {
+        status: PaymentStatus.PAGO,
+        paidDate: {
           gte: firstDayOfMonth,
           lte: lastDayOfMonth,
         },
       },
     });
 
-    const totalReceived = paymentsThisMonth
-      .filter((p) => p.status === PaymentStatus.PAGO)
-      .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+    // Pagamentos com vencimento no mês (para calcular esperado, pendente e atrasado)
+    const paymentsDueThisMonth = await this.prisma.payment.findMany({
+      where: {
+        dueDate: {
+          gte: firstDayOfMonth,
+          lte: lastDayOfMonth,
+        },
+      },
+    });
 
-    const totalPending = paymentsThisMonth
+    const totalReceived = paymentsReceivedThisMonth
+      .reduce((sum, p) => sum + (p.paidAmount || p.amount), 0);
+
+    const totalPending = paymentsDueThisMonth
       .filter((p) => p.status === PaymentStatus.PENDENTE)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    const totalOverdue = paymentsThisMonth
+    const totalOverdue = paymentsDueThisMonth
       .filter((p) => p.status === PaymentStatus.ATRASADO)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    const totalExpected = paymentsThisMonth.reduce((sum, p) => sum + p.amount, 0);
+    const totalExpected = paymentsDueThisMonth.reduce((sum, p) => sum + p.amount, 0);
 
     // Despesas do mês
     const expensesThisMonth = await this.prisma.expense.findMany({
