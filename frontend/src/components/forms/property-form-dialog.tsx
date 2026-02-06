@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -37,18 +37,33 @@ const propertySchema = z.object({
 
 type PropertyFormData = z.infer<typeof propertySchema>;
 
+interface Property {
+  id: string;
+  name: string;
+  type: string;
+  address: string;
+  city: string;
+  state: string;
+  registration?: string;
+  hasUnits: boolean;
+  observations?: string;
+}
+
 interface PropertyFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  property?: Property | null;
 }
 
 export function PropertyFormDialog({
   open,
   onOpenChange,
   onSuccess,
+  property,
 }: PropertyFormDialogProps) {
   const [loading, setLoading] = useState(false);
+  const isEditing = !!property;
 
   const {
     register,
@@ -64,18 +79,38 @@ export function PropertyFormDialog({
     },
   });
 
+  useEffect(() => {
+    if (property && open) {
+      setValue('name', property.name);
+      setValue('type', property.type as any);
+      setValue('address', property.address);
+      setValue('city', property.city);
+      setValue('state', property.state);
+      setValue('registration', property.registration || '');
+      setValue('hasUnits', property.hasUnits);
+      setValue('observations', property.observations || '');
+    } else if (!open) {
+      reset();
+    }
+  }, [property, open, setValue, reset]);
+
   const propertyType = watch('type');
 
   const onSubmit = async (data: PropertyFormData) => {
     setLoading(true);
     try {
-      await api.post('/properties', data);
-      alert('Imóvel cadastrado com sucesso!');
+      if (isEditing) {
+        await api.patch(`/properties/${property.id}`, data);
+        alert('Imóvel atualizado com sucesso!');
+      } else {
+        await api.post('/properties', data);
+        alert('Imóvel cadastrado com sucesso!');
+      }
       reset();
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      alert('Erro ao cadastrar imóvel: ' + (error.response?.data?.message || error.message));
+      alert(`Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} imóvel: ` + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -85,9 +120,9 @@ export function PropertyFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Imóvel</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar Imóvel' : 'Novo Imóvel'}</DialogTitle>
           <DialogDescription>
-            Preencha os dados do imóvel que deseja cadastrar.
+            {isEditing ? 'Atualize os dados do imóvel.' : 'Preencha os dados do imóvel que deseja cadastrar.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -208,7 +243,7 @@ export function PropertyFormDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Cadastrando...' : 'Cadastrar'}
+              {loading ? (isEditing ? 'Atualizando...' : 'Cadastrando...') : (isEditing ? 'Atualizar' : 'Cadastrar')}
             </Button>
           </DialogFooter>
         </form>

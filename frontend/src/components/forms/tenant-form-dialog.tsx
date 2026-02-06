@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -28,38 +28,70 @@ const tenantSchema = z.object({
 
 type TenantFormData = z.infer<typeof tenantSchema>;
 
+interface Tenant {
+  id: string;
+  name: string;
+  cpf: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  observations?: string;
+}
+
 interface TenantFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  tenant?: Tenant | null;
 }
 
 export function TenantFormDialog({
   open,
   onOpenChange,
   onSuccess,
+  tenant,
 }: TenantFormDialogProps) {
   const [loading, setLoading] = useState(false);
+  const isEditing = !!tenant;
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<TenantFormData>({
     resolver: zodResolver(tenantSchema),
   });
 
+  useEffect(() => {
+    if (tenant && open) {
+      setValue('name', tenant.name);
+      setValue('cpf', tenant.cpf);
+      setValue('phone', tenant.phone || '');
+      setValue('email', tenant.email || '');
+      setValue('address', tenant.address || '');
+      setValue('observations', tenant.observations || '');
+    } else if (!open) {
+      reset();
+    }
+  }, [tenant, open, setValue, reset]);
+
   const onSubmit = async (data: TenantFormData) => {
     setLoading(true);
     try {
-      await api.post('/tenants', data);
-      alert('Inquilino cadastrado com sucesso!');
+      if (isEditing) {
+        await api.patch(`/tenants/${tenant.id}`, data);
+        alert('Inquilino atualizado com sucesso!');
+      } else {
+        await api.post('/tenants', data);
+        alert('Inquilino cadastrado com sucesso!');
+      }
       reset();
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      alert('Erro ao cadastrar inquilino: ' + (error.response?.data?.message || error.message));
+      alert(`Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} inquilino: ` + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -69,9 +101,9 @@ export function TenantFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Inquilino</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar Inquilino' : 'Novo Inquilino'}</DialogTitle>
           <DialogDescription>
-            Preencha os dados do inquilino que deseja cadastrar.
+            {isEditing ? 'Atualize os dados do inquilino.' : 'Preencha os dados do inquilino que deseja cadastrar.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -154,7 +186,7 @@ export function TenantFormDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Cadastrando...' : 'Cadastrar'}
+              {loading ? (isEditing ? 'Atualizando...' : 'Cadastrando...') : (isEditing ? 'Atualizar' : 'Cadastrar')}
             </Button>
           </DialogFooter>
         </form>

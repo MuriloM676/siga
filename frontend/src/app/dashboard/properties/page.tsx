@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Building2, MapPin } from 'lucide-react';
+import { Plus, Building2, MapPin, Pencil, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { PropertyFormDialog } from '@/components/forms/property-form-dialog';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 
 interface Property {
   id: string;
@@ -22,6 +23,10 @@ export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadProperties();
@@ -35,6 +40,40 @@ export default function PropertiesPage() {
       console.error('Erro ao carregar imóveis:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEdit = (property: Property) => {
+    setSelectedProperty(property);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (property: Property) => {
+    setPropertyToDelete(property);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!propertyToDelete) return;
+
+    setDeleting(true);
+    try {
+      await api.delete(`/properties/${propertyToDelete.id}`);
+      alert('Imóvel excluído com sucesso!');
+      loadProperties();
+      setDeleteDialogOpen(false);
+      setPropertyToDelete(null);
+    } catch (error: any) {
+      alert('Erro ao excluir imóvel: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setSelectedProperty(null);
     }
   };
 
@@ -57,18 +96,47 @@ export default function PropertiesPage() {
 
       <PropertyFormDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogClose}
         onSuccess={loadProperties}
+        property={selectedProperty}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        title="Excluir Imóvel"
+        description={`Tem certeza que deseja excluir o imóvel "${propertyToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        loading={deleting}
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {properties.map((property) => (
           <Card key={property.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                {property.name}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  {property.name}
+                </CardTitle>
+                <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleEdit(property)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleDeleteClick(property)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">

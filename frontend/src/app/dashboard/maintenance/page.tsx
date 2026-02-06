@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wrench, Clock, CheckCircle, AlertTriangle, Plus } from 'lucide-react';
+import { Wrench, Clock, CheckCircle, AlertTriangle, Plus, Pencil, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import MaintenanceFormDialog from '@/components/forms/maintenance-form-dialog';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 
 interface MaintenanceTicket {
   id: string;
@@ -17,6 +18,8 @@ interface MaintenanceTicket {
   reportedAt?: string;
   completedAt?: string;
   observations?: string;
+  propertyId: string;
+  unitId?: string;
   property: { name: string };
   unit?: { identifier: string };
 }
@@ -26,6 +29,10 @@ export default function MaintenancePage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'ABERTO' | 'EM_ANDAMENTO' | 'CONCLUIDO'>('all');
+  const [selectedMaintenanceTicket, setSelectedMaintenanceTicket] = useState<MaintenanceTicket | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState<MaintenanceTicket | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadTickets();
@@ -51,6 +58,40 @@ export default function MaintenancePage() {
       loadTickets();
     } catch (error: any) {
       alert('Erro ao atualizar status: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleEdit = (ticket: MaintenanceTicket) => {
+    setSelectedMaintenanceTicket(ticket);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (ticket: MaintenanceTicket) => {
+    setTicketToDelete(ticket);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!ticketToDelete) return;
+
+    setDeleting(true);
+    try {
+      await api.delete(`/maintenance/${ticketToDelete.id}`);
+      alert('Chamado excluído com sucesso!');
+      loadTickets();
+      setDeleteDialogOpen(false);
+      setTicketToDelete(null);
+    } catch (error: any) {
+      alert('Erro ao excluir chamado: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setSelectedMaintenanceTicket(null);
     }
   };
 
@@ -171,6 +212,15 @@ export default function MaintenancePage() {
         </Button>
       </div>
 
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        title="Excluir Chamado"
+        description={`Tem certeza que deseja excluir o chamado "${ticketToDelete?.title}"? Esta ação não pode ser desfeita.`}
+        loading={deleting}
+      />
+
       {/* Tickets List */}
       <div className="space-y-3">
         {filteredTickets.length === 0 ? (
@@ -182,19 +232,40 @@ export default function MaintenancePage() {
         ) : (
           filteredTickets.map((ticket) => (
             <Card key={ticket.id}>
-              <CardContent className="pt-6">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{ticket.title}</CardTitle>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleEdit(ticket)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDeleteClick(ticket)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold">{ticket.title}</h3>
                       {ticket.unit && (
                         <span className="text-sm text-muted-foreground">
-                          - {ticket.property.name} ({ticket.unit.identifier})
+                          {ticket.property.name} ({ticket.unit.identifier})
                         </span>
                       )}
                       {!ticket.unit && (
                         <span className="text-sm text-muted-foreground">
-                          - {ticket.property.name}
+                          {ticket.property.name}
                         </span>
                       )}
                       <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(ticket.status)}`}>
@@ -250,8 +321,9 @@ export default function MaintenancePage() {
 
       <MaintenanceFormDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogClose}
         onSuccess={loadTickets}
+        maintenance={selectedMaintenanceTicket}
       />
     </div>
   );

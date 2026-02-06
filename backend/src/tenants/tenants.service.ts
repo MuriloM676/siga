@@ -88,6 +88,17 @@ export class TenantsService {
   async remove(id: string) {
     await this.findOne(id);
 
+    // Verificar se há contratos associados
+    const contractsCount = await this.prisma.contract.count({
+      where: { tenantId: id },
+    });
+
+    if (contractsCount > 0) {
+      throw new ConflictException(
+        `Não é possível excluir este inquilino pois existem ${contractsCount} contrato(s) associado(s). Exclua os contratos primeiro.`
+      );
+    }
+
     await this.prisma.tenant.delete({
       where: { id },
     });

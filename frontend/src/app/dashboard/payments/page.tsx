@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DollarSign, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { RegisterPaymentDialog } from '@/components/forms/register-payment-dialog';
 
 interface Payment {
   id: string;
@@ -13,6 +14,7 @@ interface Payment {
   paidDate?: string;
   amount: number;
   status: 'PENDENTE' | 'PAGO' | 'ATRASADO';
+  referenceMonth: string;
   lateAmount?: number;
   interestAmount?: number;
   totalAmount?: number;
@@ -26,6 +28,8 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'PENDENTE' | 'PAGO' | 'ATRASADO'>('all');
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   useEffect(() => {
     loadPayments();
@@ -42,16 +46,9 @@ export default function PaymentsPage() {
     }
   };
 
-  const markAsPaid = async (id: string) => {
-    if (!confirm('Confirma o recebimento deste pagamento?')) return;
-    
-    try {
-      await api.post(`/payments/${id}/mark-as-paid`);
-      alert('Pagamento marcado como pago com sucesso!');
-      loadPayments();
-    } catch (error: any) {
-      alert('Erro ao marcar pagamento: ' + (error.response?.data?.message || error.message));
-    }
+  const handleRegisterPayment = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setRegisterDialogOpen(true);
   };
 
   const filteredPayments = filter === 'all' 
@@ -159,6 +156,13 @@ export default function PaymentsPage() {
         </Button>
       </div>
 
+      <RegisterPaymentDialog
+        open={registerDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+        onSuccess={loadPayments}
+        payment={selectedPayment}
+      />
+
       {/* Payments List */}
       <div className="space-y-3">
         {filteredPayments.length === 0 ? (
@@ -216,10 +220,10 @@ export default function PaymentsPage() {
                       <Button
                         size="sm"
                         className="mt-2"
-                        onClick={() => markAsPaid(payment.id)}
+                        onClick={() => handleRegisterPayment(payment)}
                       >
                         <CheckCircle className="h-4 w-4 mr-1" />
-                        Marcar como Pago
+                        Registrar Pagamento
                       </Button>
                     )}
                   </div>

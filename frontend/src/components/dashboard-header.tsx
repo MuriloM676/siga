@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { LogOut, Home, Building2, Users, FileText, DollarSign, Wrench } from 'lucide-react';
+import { LogOut, Home, Building2, Users, FileText, DollarSign, Wrench, Layers, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -49,6 +49,12 @@ export default function DashboardHeader() {
                 Imóveis
               </Button>
             </Link>
+            <Link href="/dashboard/units">
+              <Button variant={isActive('/dashboard/units') ? 'default' : 'ghost'} size="sm">
+                <Layers className="h-4 w-4 mr-2" />
+                Unidades
+              </Button>
+            </Link>
             <Link href="/dashboard/tenants">
               <Button variant={isActive('/dashboard/tenants') ? 'default' : 'ghost'} size="sm">
                 <Users className="h-4 w-4 mr-2" />
@@ -65,6 +71,12 @@ export default function DashboardHeader() {
               <Button variant={isActive('/dashboard/payments') ? 'default' : 'ghost'} size="sm">
                 <DollarSign className="h-4 w-4 mr-2" />
                 Pagamentos
+              </Button>
+            </Link>
+            <Link href="/dashboard/expenses">
+              <Button variant={isActive('/dashboard/expenses') ? 'default' : 'ghost'} size="sm">
+                <Receipt className="h-4 w-4 mr-2" />
+                Despesas
               </Button>
             </Link>
             <Link href="/dashboard/maintenance">

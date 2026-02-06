@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
@@ -92,6 +92,28 @@ export class PropertiesService {
 
   async remove(id: string) {
     await this.findOne(id);
+
+    // Verificar se há contratos associados
+    const contractsCount = await this.prisma.contract.count({
+      where: { propertyId: id },
+    });
+
+    if (contractsCount > 0) {
+      throw new ConflictException(
+        `Não é possível excluir este imóvel pois existem ${contractsCount} contrato(s) associado(s). Exclua os contratos primeiro.`
+      );
+    }
+
+    // Verificar se há unidades associadas
+    const unitsCount = await this.prisma.unit.count({
+      where: { propertyId: id },
+    });
+
+    if (unitsCount > 0) {
+      throw new ConflictException(
+        `Não é possível excluir este imóvel pois existem ${unitsCount} unidade(s) associada(s). Exclua as unidades primeiro.`
+      );
+    }
 
     await this.prisma.property.delete({
       where: { id },

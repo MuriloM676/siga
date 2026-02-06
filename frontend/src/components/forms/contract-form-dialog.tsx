@@ -39,10 +39,26 @@ const contractSchema = z.object({
 
 type ContractFormData = z.infer<typeof contractSchema>;
 
+interface Contract {
+  id: string;
+  propertyId: string;
+  unitId?: string;
+  tenantId: string;
+  rentAmount: number;
+  dueDay: number;
+  startDate: string;
+  endDate?: string;
+  status: string;
+  guaranteeType: 'NENHUMA' | 'FIADOR' | 'SEGURO_FIANCA' | 'CAUCAO';
+  indexType: 'NENHUM' | 'IPCA' | 'IGP_M' | 'FIXO';
+  observations?: string;
+}
+
 interface ContractFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  contract?: Contract;
 }
 
 interface Property {
@@ -67,7 +83,9 @@ export function ContractFormDialog({
   open,
   onOpenChange,
   onSuccess,
+  contract,
 }: ContractFormDialogProps) {
+  const isEditing = !!contract;
   const [loading, setLoading] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -108,6 +126,23 @@ export function ContractFormDialog({
       loadTenants();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (contract && open) {
+      setValue('propertyId', contract.propertyId);
+      setValue('unitId', contract.unitId || '');
+      setValue('tenantId', contract.tenantId);
+      setValue('startDate', contract.startDate.split('T')[0]);
+      setValue('endDate', contract.endDate ? contract.endDate.split('T')[0] : '');
+      setValue('rentAmount', contract.rentAmount.toString());
+      setValue('dueDay', contract.dueDay.toString());
+      setValue('guaranteeType', contract.guaranteeType);
+      setValue('indexType', contract.indexType);
+      setValue('observations', contract.observations || '');
+    } else if (!contract && open) {
+      reset();
+    }
+  }, [contract, open, setValue, reset]);
 
   useEffect(() => {
     const property = properties.find(p => p.id === propertyId);
@@ -159,15 +194,20 @@ export function ContractFormDialog({
         payload.observations = data.observations;
       }
       
-      await api.post('/contracts', payload);
-      alert('Contrato cadastrado com sucesso!');
+      if (isEditing && contract) {
+        await api.patch(`/contracts/${contract.id}`, payload);
+        alert('Contrato atualizado com sucesso!');
+      } else {
+        await api.post('/contracts', payload);
+        alert('Contrato cadastrado com sucesso!');
+      }
       reset();
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Erro completo:', error);
       const errorMessage = error.response?.data?.message || error.message;
-      alert('Erro ao cadastrar contrato: ' + errorMessage);
+      alert(`Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} contrato: ` + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -177,9 +217,9 @@ export function ContractFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Contrato</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar Contrato' : 'Novo Contrato'}</DialogTitle>
           <DialogDescription>
-            Preencha os dados do contrato de locação.
+            {isEditing ? 'Atualize os dados do contrato de locação.' : 'Preencha os dados do contrato de locação.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -357,7 +397,7 @@ export function ContractFormDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Cadastrando...' : 'Cadastrar'}
+              {loading ? (isEditing ? 'Salvando...' : 'Cadastrando...') : (isEditing ? 'Salvar' : 'Cadastrar')}
             </Button>
           </DialogFooter>
         </form>

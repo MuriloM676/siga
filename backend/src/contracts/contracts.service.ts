@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
@@ -181,10 +181,24 @@ export class ContractsService {
   async remove(id: string) {
     await this.findOne(id);
 
+    // Check if there are payments associated and inform user
+    const paymentsCount = await this.prisma.payment.count({
+      where: { contractId: id },
+    });
+
+    // Payments have onDelete: Cascade, so they will be deleted automatically
+    // This is just for logging/tracking purposes
+    if (paymentsCount > 0) {
+      console.log(`Deleting contract ${id} will also delete ${paymentsCount} payment(s)`);
+    }
+
     await this.prisma.contract.delete({
       where: { id },
     });
 
-    return { message: 'Contrato removido com sucesso' };
+    return { 
+      message: 'Contrato removido com sucesso',
+      deletedPayments: paymentsCount
+    };
   }
 }

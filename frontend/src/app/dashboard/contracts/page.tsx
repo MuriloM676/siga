@@ -3,17 +3,25 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, Plus, Download } from 'lucide-react';
+import { FileText, Plus, Download, Pencil, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ContractFormDialog } from '@/components/forms/contract-form-dialog';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 
 interface Contract {
   id: string;
+  propertyId: string;
+  unitId?: string;
+  tenantId: string;
   startDate: string;
   endDate?: string;
   rentAmount: number;
+  dueDay: number;
   status: string;
+  guaranteeType: string;
+  indexType: string;
+  observations?: string;
   property: { name: string };
   tenant: { name: string };
 }
@@ -22,6 +30,10 @@ export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | undefined>(undefined);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [contractToDelete, setContractToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadContracts();
@@ -75,6 +87,41 @@ export default function ContractsPage() {
     }
   };
 
+  const handleEdit = (contract: Contract) => {
+    setSelectedContract(contract);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (contractId: string) => {
+    setContractToDelete(contractId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!contractToDelete) return;
+    
+    setDeleting(true);
+    try {
+      await api.delete(`/contracts/${contractToDelete}`);
+      alert('Contrato excluído com sucesso!');
+      loadContracts();
+      setDeleteDialogOpen(false);
+      setContractToDelete(null);
+    } catch (error: any) {
+      console.error('Erro ao excluir contrato:', error);
+      alert('Erro ao excluir contrato: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setSelectedContract(undefined);
+    }
+  };
+
   if (loading) {
     return <div className="p-8">Carregando...</div>;
   }
@@ -94,8 +141,18 @@ export default function ContractsPage() {
 
       <ContractFormDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogClose}
         onSuccess={loadContracts}
+        contract={selectedContract}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        title="Excluir Contrato"
+        description="Tem certeza que deseja excluir este contrato? Esta ação não pode ser desfeita."
+        loading={deleting}
       />
 
       <div className="space-y-4">
@@ -107,17 +164,33 @@ export default function ContractsPage() {
                   <FileText className="h-5 w-5" />
                   {contract.property.name}
                 </span>
-                <span
-                  className={`px-3 py-1 text-sm rounded-full ${
-                    contract.status === 'ATIVO'
-                      ? 'bg-green-100 text-green-700'
-                      : contract.status === 'ENCERRADO'
-                      ? 'bg-gray-100 text-gray-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
-                >
-                  {contract.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-3 py-1 text-sm rounded-full ${
+                      contract.status === 'ATIVO'
+                        ? 'bg-green-100 text-green-700'
+                        : contract.status === 'ENCERRADO'
+                        ? 'bg-gray-100 text-gray-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}
+                  >
+                    {contract.status}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleEdit(contract)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteClick(contract.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>

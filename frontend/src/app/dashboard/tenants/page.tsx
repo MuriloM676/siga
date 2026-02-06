@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, Mail, Phone } from 'lucide-react';
+import { Plus, Users, Mail, Phone, Pencil, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { TenantFormDialog } from '@/components/forms/tenant-form-dialog';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 
 interface Tenant {
   id: string;
@@ -13,12 +14,18 @@ interface Tenant {
   cpf: string;
   phone?: string;
   email?: string;
+  address?: string;
+  observations?: string;
 }
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadTenants();
@@ -32,6 +39,40 @@ export default function TenantsPage() {
       console.error('Erro ao carregar inquilinos:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEdit = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (tenant: Tenant) => {
+    setTenantToDelete(tenant);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!tenantToDelete) return;
+
+    setDeleting(true);
+    try {
+      await api.delete(`/tenants/${tenantToDelete.id}`);
+      alert('Inquilino excluído com sucesso!');
+      loadTenants();
+      setDeleteDialogOpen(false);
+      setTenantToDelete(null);
+    } catch (error: any) {
+      alert('Erro ao excluir inquilino: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setSelectedTenant(null);
     }
   };
 
@@ -54,18 +95,47 @@ export default function TenantsPage() {
 
       <TenantFormDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogClose}
         onSuccess={loadTenants}
+        tenant={selectedTenant}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        title="Excluir Inquilino"
+        description={`Tem certeza que deseja excluir o inquilino "${tenantToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        loading={deleting}
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {tenants.map((tenant) => (
           <Card key={tenant.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                {tenant.name}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  {tenant.name}
+                </CardTitle>
+                <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleEdit(tenant)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleDeleteClick(tenant)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">

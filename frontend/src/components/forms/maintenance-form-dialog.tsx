@@ -44,21 +44,34 @@ interface Unit {
   identifier: string;
 }
 
+interface MaintenanceTicket {
+  id: string;
+  propertyId: string;
+  unitId?: string;
+  title: string;
+  description: string;
+  cost?: number;
+  observations?: string;
+}
+
 interface MaintenanceFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  maintenance?: MaintenanceTicket | null;
 }
 
 export default function MaintenanceFormDialog({
   open,
   onOpenChange,
   onSuccess,
+  maintenance,
 }: MaintenanceFormDialogProps) {
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(false);
+  const isEditing = !!maintenance;
 
   const {
     register,
@@ -78,6 +91,19 @@ export default function MaintenanceFormDialog({
       loadProperties();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (maintenance && open && properties.length > 0) {
+      setValue('propertyId', maintenance.propertyId);
+      setValue('unitId', maintenance.unitId || '');
+      setValue('title', maintenance.title);
+      setValue('description', maintenance.description);
+      setValue('cost', maintenance.cost?.toString() || '');
+      setValue('observations', maintenance.observations || '');
+    } else if (!open) {
+      reset();
+    }
+  }, [maintenance, open, properties, setValue, reset]);
 
   useEffect(() => {
     if (propertyId) {
@@ -133,13 +159,18 @@ export default function MaintenanceFormDialog({
         payload.observations = data.observations;
       }
 
-      await api.post('/maintenance', payload);
-      alert('Chamado criado com sucesso!');
+      if (isEditing) {
+        await api.patch(`/maintenance/${maintenance.id}`, payload);
+        alert('Chamado atualizado com sucesso!');
+      } else {
+        await api.post('/maintenance', payload);
+        alert('Chamado criado com sucesso!');
+      }
       reset();
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      alert('Erro ao criar chamado: ' + (error.response?.data?.message || error.message));
+      alert(`Erro ao ${isEditing ? 'atualizar' : 'criar'} chamado: ` + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -149,7 +180,7 @@ export default function MaintenanceFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Chamado de Manutenção</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar Chamado de Manutenção' : 'Novo Chamado de Manutenção'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -259,7 +290,7 @@ export default function MaintenanceFormDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Criando...' : 'Criar Chamado'}
+              {loading ? (isEditing ? 'Atualizando...' : 'Criando...') : (isEditing ? 'Atualizar Chamado' : 'Criar Chamado')}
             </Button>
           </div>
         </form>
