@@ -43,7 +43,78 @@ export class ContractsService {
       },
     });
 
+    // Generate initial payments for the contract
+    try {
+      await this.generatePaymentsForContract(contract);
+    } catch (error) {
+      console.error('Erro ao gerar pagamentos:', error);
+      // Don't fail contract creation if payment generation fails
+    }
+
     return contract;
+  }
+
+  async generatePaymentsForContract(contract: any) {
+    // Check if payments already exist for this contract
+    const existingPayments = await this.prisma.payment.count({
+      where: { contractId: contract.id },
+    });
+
+    if (existingPayments > 0) {
+      console.log(`Contract ${contract.id} already has ${existingPayments} payments`);
+      return { message: `Contrato já possui ${existingPayments} pagamentos`, count: existingPayments };
+    }
+
+    const startDate = new Date(contract.startDate);
+    const endDate = contract.endDate ? new Date(contract.endDate) : null;
+    const paymentsToGenerate: any[] = [];
+
+    // Determine how many months to generate (max 12 or until end date)
+    const maxMonths = 12;
+    
+    for (let i = 0; i < maxMonths; i++) {
+      // Calculate the reference month
+      const referenceDate = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+      
+      // Stop if we've passed the end date
+      if (endDate) {
+        const refMonthEnd = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0);
+        if (refMonthEnd > endDate) {
+          break;
+        }
+      }
+
+      // Calculate due date for this month
+      const dueDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), contract.dueDay);
+      
+      // If dueDay doesn't exist in this month (e.g., Feb 31), set to last day of month
+      if (dueDate.getMonth() !== referenceDate.getMonth()) {
+        dueDate.setDate(0); // Go back to last day of previous month
+        dueDate.setMonth(referenceDate.getMonth() + 1); // Then move to end of current month
+        dueDate.setDate(0);
+      }
+
+      paymentsToGenerate.push({
+        contractId: contract.id,
+        referenceMonth: referenceDate.toISOString(), // First day of the month as DateTime
+        dueDate: dueDate.toISOString(),
+        amount: contract.rentAmount,
+        status: 'PENDENTE',
+      });
+    }
+
+    console.log(`Generating ${paymentsToGenerate.length} payments for contract ${contract.id}`);
+
+    // Create all payments in bulk
+    if (paymentsToGenerate.length > 0) {
+      await this.prisma.payment.createMany({
+        data: paymentsToGenerate,
+      });
+      console.log(`Successfully created ${paymentsToGenerate.length} payments`);
+      return { message: `${paymentsToGenerate.length} pagamentos gerados com sucesso`, count: paymentsToGenerate.length };
+    }
+    
+    return { message: 'Nenhum pagamento foi gerado', count: 0 };
   }
 
   async findAll(status?: string, propertyId?: string) {

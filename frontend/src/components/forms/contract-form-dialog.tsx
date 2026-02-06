@@ -26,16 +26,15 @@ import api from '@/lib/api';
 
 const contractSchema = z.object({
   propertyId: z.string().min(1, 'Selecione um imóvel'),
-  unitId: z.string().optional(),
+  unitId: z.string().optional().or(z.literal('')),
   tenantId: z.string().min(1, 'Selecione um inquilino'),
   startDate: z.string().min(1, 'Data de início obrigatória'),
-  endDate: z.string().optional(),
+  endDate: z.string().optional().or(z.literal('')),
   rentAmount: z.string().min(1, 'Valor do aluguel obrigatório'),
   dueDay: z.string().min(1, 'Dia de vencimento obrigatório'),
-  depositAmount: z.string().optional(),
-  guaranteeType: z.enum(['NENHUMA', 'FIADOR', 'SEGURO_FIANCA', 'DEPOSITO_CAUCAO', 'TITULO_CAPITALIZACAO']),
-  indexType: z.enum(['NENHUM', 'IGPM', 'IPCA', 'INPC', 'IPC']),
-  observations: z.string().optional(),
+  guaranteeType: z.enum(['NENHUMA', 'FIADOR', 'SEGURO_FIANCA', 'CAUCAO']),
+  indexType: z.enum(['NENHUM', 'IPCA', 'IGP_M', 'FIXO']),
+  observations: z.string().optional().or(z.literal('')),
 });
 
 type ContractFormData = z.infer<typeof contractSchema>;
@@ -84,12 +83,22 @@ export function ContractFormDialog({
   } = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
+      propertyId: '',
+      unitId: '',
+      tenantId: '',
+      startDate: '',
+      endDate: '',
+      rentAmount: '',
+      dueDay: '',
       guaranteeType: 'NENHUMA',
-      indexType: 'IGPM',
+      indexType: 'IPCA',
+      observations: '',
     },
   });
 
-  const propertyId = watch('propertyId');
+  const propertyId = watch('propertyId') || '';
+  const tenantId = watch('tenantId') || '';
+  const unitId = watch('unitId') || '';
   const guaranteeType = watch('guaranteeType');
   const indexType = watch('indexType');
 
@@ -129,20 +138,36 @@ export function ContractFormDialog({
   const onSubmit = async (data: ContractFormData) => {
     setLoading(true);
     try {
-      const payload = {
-        ...data,
+      const payload: any = {
+        propertyId: data.propertyId,
+        tenantId: data.tenantId,
+        startDate: new Date(data.startDate).toISOString(),
         rentAmount: parseFloat(data.rentAmount),
         dueDay: parseInt(data.dueDay),
-        depositAmount: data.depositAmount ? parseFloat(data.depositAmount) : undefined,
-        unitId: data.unitId || undefined,
+        guaranteeType: data.guaranteeType,
+        indexType: data.indexType,
       };
+      
+      // Add optional fields only if they have values
+      if (data.unitId && data.unitId !== '') {
+        payload.unitId = data.unitId;
+      }
+      if (data.endDate && data.endDate !== '') {
+        payload.endDate = new Date(data.endDate).toISOString();
+      }
+      if (data.observations && data.observations !== '') {
+        payload.observations = data.observations;
+      }
+      
       await api.post('/contracts', payload);
       alert('Contrato cadastrado com sucesso!');
       reset();
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      alert('Erro ao cadastrar contrato: ' + (error.response?.data?.message || error.message));
+      console.error('Erro completo:', error);
+      const errorMessage = error.response?.data?.message || error.message;
+      alert('Erro ao cadastrar contrato: ' + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -186,7 +211,7 @@ export function ContractFormDialog({
               <div className="col-span-2">
                 <Label htmlFor="unitId">Unidade</Label>
                 <Select
-                  value={watch('unitId')}
+                  value={unitId}
                   onValueChange={(value) => setValue('unitId', value)}
                 >
                   <SelectTrigger>
@@ -206,7 +231,7 @@ export function ContractFormDialog({
             <div className="col-span-2">
               <Label htmlFor="tenantId">Inquilino *</Label>
               <Select
-                value={watch('tenantId')}
+                value={tenantId}
                 onValueChange={(value) => setValue('tenantId', value)}
               >
                 <SelectTrigger>
@@ -276,17 +301,6 @@ export function ContractFormDialog({
             </div>
 
             <div>
-              <Label htmlFor="depositAmount">Valor do Depósito (R$)</Label>
-              <Input
-                id="depositAmount"
-                type="number"
-                step="0.01"
-                placeholder="1500.00"
-                {...register('depositAmount')}
-              />
-            </div>
-
-            <div>
               <Label htmlFor="guaranteeType">Tipo de Garantia *</Label>
               <Select
                 value={guaranteeType}
@@ -299,8 +313,7 @@ export function ContractFormDialog({
                   <SelectItem value="NENHUMA">Nenhuma</SelectItem>
                   <SelectItem value="FIADOR">Fiador</SelectItem>
                   <SelectItem value="SEGURO_FIANCA">Seguro Fiança</SelectItem>
-                  <SelectItem value="DEPOSITO_CAUCAO">Depósito Caução</SelectItem>
-                  <SelectItem value="TITULO_CAPITALIZACAO">Título de Capitalização</SelectItem>
+                  <SelectItem value="CAUCAO">Caução</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -316,10 +329,9 @@ export function ContractFormDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="NENHUM">Nenhum</SelectItem>
-                  <SelectItem value="IGPM">IGP-M</SelectItem>
                   <SelectItem value="IPCA">IPCA</SelectItem>
-                  <SelectItem value="INPC">INPC</SelectItem>
-                  <SelectItem value="IPC">IPC</SelectItem>
+                  <SelectItem value="IGP_M">IGP-M</SelectItem>
+                  <SelectItem value="FIXO">Fixo</SelectItem>
                 </SelectContent>
               </Select>
             </div>

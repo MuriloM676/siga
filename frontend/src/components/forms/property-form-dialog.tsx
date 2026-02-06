@@ -30,7 +30,7 @@ const propertySchema = z.object({
   address: z.string().min(5, 'Endereço deve ter pelo menos 5 caracteres'),
   city: z.string().min(2, 'Cidade obrigatória'),
   state: z.string().length(2, 'Estado deve ter 2 caracteres (ex: SP)'),
-  registrationNumber: z.string().optional(),
+  registration: z.string().optional(),
   hasUnits: z.boolean().default(false),
   observations: z.string().optional(),
 });
@@ -128,11 +128,11 @@ export function PropertyFormDialog({
             </div>
 
             <div>
-              <Label htmlFor="registrationNumber">Matrícula</Label>
+              <Label htmlFor="registration">Matrícula</Label>
               <Input
-                id="registrationNumber"
+                id="registration"
                 placeholder="Número da matrícula"
-                {...register('registrationNumber')}
+                {...register('registration')}
               />
             </div>
 

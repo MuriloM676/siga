@@ -23,9 +23,6 @@ const tenantSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().max(2).optional(),
-  zipCode: z.string().optional(),
   observations: z.string().optional(),
 });
 
@@ -128,39 +125,11 @@ export function TenantFormDialog({
             </div>
 
             <div className="col-span-2">
-              <Label htmlFor="address">Endereço</Label>
+              <Label htmlFor="address">Endereço Completo</Label>
               <Input
                 id="address"
-                placeholder="Rua, número, complemento"
+                placeholder="Rua, número, complemento, cidade, estado, CEP"
                 {...register('address')}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="city">Cidade</Label>
-              <Input
-                id="city"
-                placeholder="Ex: São Paulo"
-                {...register('city')}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="state">Estado (UF)</Label>
-              <Input
-                id="state"
-                placeholder="Ex: SP"
-                maxLength={2}
-                {...register('state')}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="zipCode">CEP</Label>
-              <Input
-                id="zipCode"
-                placeholder="12345-678"
-                {...register('zipCode')}
               />
             </div>
 

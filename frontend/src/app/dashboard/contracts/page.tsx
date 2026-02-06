@@ -38,6 +38,21 @@ export default function ContractsPage() {
     }
   };
 
+  const generatePayments = async (contractId: string) => {
+    if (!confirm('Gerar pagamentos para este contrato?')) return;
+    
+    try {
+      const response = await api.post(`/contracts/${contractId}/generate-payments`);
+      alert(response.data.message || 'Pagamentos processados com sucesso!');
+      // Refresh the page to see potential updates
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Erro ao gerar pagamentos:', error);
+      const message = error.response?.data?.message || error.message;
+      alert('Erro: ' + message);
+    }
+  };
+
   if (loading) {
     return <div className="p-8">Carregando...</div>;
   }
@@ -103,6 +118,16 @@ export default function ContractsPage() {
                     {contract.endDate ? formatDate(contract.endDate) : 'Indeterminado'}
                   </p>
                 </div>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => generatePayments(contract.id)}
+                >
+                  Gerar Pagamentos
+                </Button>
               </div>
             </CardContent>
           </Card>

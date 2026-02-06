@@ -45,6 +45,15 @@ export class ContractsController {
     return this.contractsService.findOne(id);
   }
 
+  @Post(':id/generate-payments')
+  @Roles(Role.ADMIN, Role.GESTOR)
+  @ApiOperation({ summary: 'Gerar pagamentos para um contrato existente' })
+  async generatePayments(@Param('id') id: string) {
+    const contract = await this.contractsService.findOne(id);
+    const result = await this.contractsService.generatePaymentsForContract(contract);
+    return result;
+  }
+
   @Patch(':id')
   @Roles(Role.ADMIN, Role.GESTOR)
   @ApiOperation({ summary: 'Atualizar contrato' })
