@@ -25,10 +25,10 @@ import api from '@/lib/api';
 const maintenanceSchema = z.object({
   propertyId: z.string().min(1, 'Selecione um imóvel'),
   unitId: z.string().optional(),
+  title: z.string().min(3, 'Título deve ter no mínimo 3 caracteres'),
   description: z.string().min(10, 'Descrição deve ter no mínimo 10 caracteres'),
-  priority: z.enum(['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']),
-  scheduledDate: z.string().optional(),
-  estimatedCost: z.string().optional(),
+  cost: z.string().optional(),
+  observations: z.string().optional(),
 });
 
 type MaintenanceFormData = z.infer<typeof maintenanceSchema>;
@@ -69,9 +69,6 @@ export default function MaintenanceFormDialog({
     reset,
   } = useForm<MaintenanceFormData>({
     resolver: zodResolver(maintenanceSchema),
-    defaultValues: {
-      priority: 'MEDIA',
-    },
   });
 
   const propertyId = watch('propertyId');
@@ -120,20 +117,20 @@ export default function MaintenanceFormDialog({
     try {
       const payload: any = {
         propertyId: data.propertyId,
+        title: data.title,
         description: data.description,
-        priority: data.priority,
       };
 
-      if (data.unitId) {
+      if (data.unitId && data.unitId !== '') {
         payload.unitId = data.unitId;
       }
 
-      if (data.scheduledDate) {
-        payload.scheduledDate = new Date(data.scheduledDate).toISOString();
+      if (data.cost && data.cost !== '') {
+        payload.cost = parseFloat(data.cost);
       }
 
-      if (data.estimatedCost) {
-        payload.estimatedCost = parseFloat(data.estimatedCost);
+      if (data.observations && data.observations !== '') {
+        payload.observations = data.observations;
       }
 
       await api.post('/maintenance', payload);
@@ -201,6 +198,19 @@ export default function MaintenanceFormDialog({
             </div>
           )}
 
+          {/* Title */}
+          <div className="space-y-2">
+            <Label htmlFor="title">Título do Chamado *</Label>
+            <Input
+              id="title"
+              placeholder="Ex: Vazamento no banheiro"
+              {...register('title')}
+            />
+            {errors.title && (
+              <p className="text-sm text-red-500">{errors.title.message}</p>
+            )}
+          </div>
+
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Descrição do Problema *</Label>
@@ -215,51 +225,28 @@ export default function MaintenanceFormDialog({
             )}
           </div>
 
-          {/* Priority */}
+          {/* Cost */}
           <div className="space-y-2">
-            <Label htmlFor="priority">Prioridade *</Label>
-            <Select
-              value={watch('priority')}
-              onValueChange={(value) => setValue('priority', value as any)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BAIXA">Baixa</SelectItem>
-                <SelectItem value="MEDIA">Média</SelectItem>
-                <SelectItem value="ALTA">Alta</SelectItem>
-                <SelectItem value="URGENTE">Urgente</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.priority && (
-              <p className="text-sm text-red-500">{errors.priority.message}</p>
-            )}
+            <Label htmlFor="cost">Custo Estimado (R$)</Label>
+            <Input
+              id="cost"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              {...register('cost')}
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Scheduled Date */}
-            <div className="space-y-2">
-              <Label htmlFor="scheduledDate">Data Agendada</Label>
-              <Input
-                id="scheduledDate"
-                type="date"
-                {...register('scheduledDate')}
-              />
-            </div>
-
-            {/* Estimated Cost */}
-            <div className="space-y-2">
-              <Label htmlFor="estimatedCost">Custo Estimado (R$)</Label>
-              <Input
-                id="estimatedCost"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                {...register('estimatedCost')}
-              />
-            </div>
+          {/* Observations */}
+          <div className="space-y-2">
+            <Label htmlFor="observations">Observações</Label>
+            <textarea
+              id="observations"
+              {...register('observations')}
+              className="w-full min-h-[60px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="Observações adicionais..."
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
